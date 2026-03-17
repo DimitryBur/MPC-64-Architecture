@@ -1,1 +1,20 @@
-{ "project_metadata": { "codename": "MPC-64_Ultra_Matrix", "version": "3.0_Final", "classification": "RED_FLAG_PRIORITY_IP" }, "compute_core_spec": { "core_name": "MPC-64_Atomic_Cell", "isa": "Minimalist_64bit_RISC_Fixed_Pipeline", "process_node": "10nm", "clock_frequency": "2.0GHz", "vector_register_width": "1024-bit", "tensor_acceleration": "Hardware_4x4_MAC_Block" }, "interconnect": { "spine_type": "Active_Copper_Bus_Radiator", "bus_width": "1024-bit", "layer_stack": "M10-M12_Fat_Wires", "topology": "Fat-Tree_Hierarchical_Ring" }, "reliability": { "watchdog": "Deterministic_Hard_Timeout", "load_target": "80_percent_steady_state" } } 
+{ "project_metadata": 
+  { "codename": "MPC-64_Ultra_Matrix", 
+    "version": "3.0_Final", 
+    "classification": "RED_FLAG_PRIORITY_IP" }, 
+  "compute_core_spec":
+  { "core_name": "MPC-64_Atomic_Cell", 
+    "isa": "Minimalist_64bit_RISC_Fixed_Pipeline",
+    "process_node": "10nm", 
+    "clock_frequency": "2.0GHz",
+    "vector_register_width": "1024-bit", 
+    "tensor_acceleration": "Hardware_4x4_MAC_Block" },
+  "interconnect":
+  { "spine_type": "Active_Copper_Bus_Radiator", 
+    "bus_width": "1024-bit", 
+    "layer_stack": "M10-M12_Fat_Wires", 
+    "topology": "Fat-Tree_Hierarchical_Ring" }, 
+  "reliability": 
+  { "watchdog": "Deterministic_Hard_Timeout", 
+    "load_target": "80_percent_steady_state" } 
+} 
