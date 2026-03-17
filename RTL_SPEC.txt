@@ -1,0 +1,8 @@
+TARGET: 10nm GDSII Synthesis
+CORE_ID: MPC-64_V3
+LOGIC: Static FSM (No Branch Prediction)
+PIPELINE_STAGES: 10 (Deep Pipelining for 2GHz)
+REGISTER_FILE: 1024-bit wide single-port SRAM
+THERMAL_STRATEGY: Vertical vias to M10 Copper Spine
+INSTRUCTION_SET: [LD_WIDE, ST_WIDE, TMAC_4x4, V_LOGIC, WAIT_DATA, DONE_SIG]
+BUS_SHIELDING: 1:8 GND/Data Ratio
