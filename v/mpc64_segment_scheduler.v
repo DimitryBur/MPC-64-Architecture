@@ -1,32 +1,32 @@
 module mpc64_segment_scheduler (
     input wire clk,
     input wire rst_n,
-    input wire [1023:0] main_bus_data,  // Кусок тензора от Главного
-    output reg [1023:0] ring_bus_out,   // Микро-задачи в кольцо ядер
-    input wire [1023:0] ring_bus_in,    // Ответы от ядер
-    output reg main_wait_signal         // Просьба к Главному подождать (если был NOT_READY)
+    input wire [1023:0] main_task_data,
+    output reg [1023:0] to_ring_bus,
+    input wire [1023:0] from_ring_bus,
+    input wire [79:0]   cluster_ready,
+    output reg          main_wait_sig
 );
+    reg [5:0] send_ptr;   // 0-63
+    reg [3:0] backup_ptr; // 0-15 (резерв)
 
-    // Локальное хранилище сегмента (SRAM планировщика)
-    // Здесь лежит полученный от Главного кусок тензора
-    reg [1023:0] segment_work_buffer [0:63]; 
-    reg [5:0] retry_count;
-
-    always @(posedge clk) begin
-        // 1. ПОЛУЧЕНИЕ: Главный прислал кусок -> Малый начинает дробление
-        // Рассылаем микро-задачи ядрам по кольцевой шине с их ID
-        
-        // 2. КОНТРОЛЬ: Слушаем кольцо
-        if (ring_bus_in[1017:1010] == 8'hFF) begin // Получен статус NOT_READY от ядра
-            // Малый планировщик сам берет кусок из буфера и 
-            // отправляет его резервному ядру, не беспокоя Главного
-            ring_bus_out <= segment_work_buffer[next_reserve_id];
-            main_wait_signal <= 1'b1; // Сигнал наверх: "Переделываю, подожди!"
-        end
-        
-        // 3. SOFT-BOOT: Проброс прошивки
-        if (main_bus_data[1023:1016] == 8'hAA) begin // Пометка 'soft'
-            ring_bus_out <= main_bus_data; // Рассылка микрокода в SRAM ядер
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            send_ptr <= 6'd0; backup_ptr <= 4'd0; main_wait_sig <= 1'b0;
+        end else begin
+            // Конвейерная рассылка с шагом в 1 такт
+            if (send_ptr < 64) begin
+                if (cluster_ready[send_ptr]) begin
+                    to_ring_bus[1023:1017] <= {1'b0, send_ptr};
+                    send_ptr <= send_ptr + 1'b1;
+                end else if (backup_ptr < 16) begin
+                    // Мгновенная подмена на резервное ядро (ID 64+)
+                    to_ring_bus[1023:1017] <= 7'd64 + backup_ptr;
+                    backup_ptr <= backup_ptr + 1'b1;
+                    send_ptr <= send_ptr + 1'b1;
+                    main_wait_sig <= 1'b1; // Просим главный подождать
+                end
+            end
         end
     end
 endmodule
