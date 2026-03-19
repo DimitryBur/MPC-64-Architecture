@@ -1,53 +1,49 @@
-module mpc64_alu_core (
-    input  wire          clk,        // 2.0 GHz
-    input  wire          rst_n,      
-    
-    // Интерфейс с L1 SRAM (Векторы 1024 бита)
-    input  wire [1023:0] v_reg_a,    // Активации (16 x 64-bit)
-    input  wire [1023:0] v_reg_b,    // Веса (16 x 64-bit)
-    input  wire [1023:0] v_reg_acc,  // Аккумулятор (предыдущий результат)
-    
-    // Управление
-    input  wire [3:0]    alu_op,     // 0001: TMAC_4x4, 0010: V_LOGIC_AND, etc.
-    input  wire          start_exec, // Импульс запуска от планировщика
-    
-    // Выход
-    output reg  [1023:0] v_result,   // Финальный вектор
-    output reg           done_sig    // Импульс завершения (ровно через 4 такта для TMAC)
+module mpc64_alu_node #(
+    parameter [5:0] CORE_ID = 6'd0  // Уникальный номер ядра в сегменте (0-63)
+)(
+    input wire clk,
+    input wire rst_n,
+    input wire [1023:0] ring_bus_in,  // Вход 1024-битной кольцевой шины
+    output reg [1023:0] ring_bus_out, // Выход на следующее ядро
+    output reg ready_status           // 1 = OK, 0 = Not Ready (для планировщика)
 );
 
-    // Внутренние конвейерные регистры для TMAC (4 стадии)
-    reg [1023:0] pipe_stage_1, pipe_stage_2, pipe_stage_3;
-    reg [2:0]    exec_cnt;
+    // Структура пакета на шине (примерно):
+    // [1023:1018] - ID целевого ядра
+    // [1017:1010] - OpCode (команда)
+    // [1009:0]    - Данные (тензорный блок + доп. инфо)
+
+    reg [63:0] local_sram [0:127];
+    reg [7:0] timer; // Счетчик для детерминированного ответа
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            v_result <= 1024'b0;
-            done_sig <= 1'b0;
-            exec_cnt <= 3'b0;
+            ring_bus_out <= 1024'b0;
+            ready_status <= 1'b1;
+            timer <= 8'd0;
         end else begin
-            if (start_exec) begin
-                exec_cnt <= 3'd1;
-                done_sig <= 1'b0;
+            // 1. Логика захвата пакета по ID
+            if (ring_bus_in[1023:1018] == CORE_ID) begin
                 
-                // Стадия 1: Параллельное умножение 16 пар (4x4 MAC в векторе)
-                // Здесь реализуется логика 16-ти независимых множителей 64x64
-                pipe_stage_1 <= v_reg_a * v_reg_b; 
-            end 
-            else if (exec_cnt > 0 && exec_cnt < 4) begin
-                exec_cnt <= exec_cnt + 1;
+                // Проверка готовности: если занято или сбой — Not Ready
+                if (timer > 0) begin
+                    ready_status <= 1'b0; // Сигнал планировщику для резерва
+                end else begin
+                    // Выполнение операции (например, MAC 4x4)
+                    // ... здесь логика вычислений ...
+                    timer <= 8'd152; // Запуск жесткого тайминга задачи
+                    ready_status <= 1'b1;
+                end
                 
-                // Стадии 2-3: Дерево сложения (Adder Tree) и накопление
-                pipe_stage_2 <= pipe_stage_1; 
-                pipe_stage_3 <= pipe_stage_2 + v_reg_acc;
-            end 
-            else if (exec_cnt == 4) begin
-                v_result <= pipe_stage_3;
-                done_sig <= 1'b1; // Такт 24 для планировщика
-                exec_cnt <= 3'd0;
+                // Передаем пакет дальше (кольцо), пометив, что он принят
+                ring_bus_out <= ring_bus_in; 
             end else begin
-                done_sig <= 1'b0;
+                // Просто транслируем чужие данные дальше по кольцу
+                ring_bus_out <= ring_bus_in;
             end
+
+            // 2. Детерминированный отсчет
+            if (timer > 0) timer <= timer - 1'b1;
         end
     end
 endmodule
